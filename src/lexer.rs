@@ -38,27 +38,21 @@ impl Lexer {
 
         return lex;
     }
+    pub fn lex(&mut self) -> Result<Vec<Token>, String> {
+        let mut tokens = Vec::new();
 
-    pub fn next_token(&mut self) -> Result<Token> {
-        if self.read_position >= self.input.len() {
-            return Ok(Token::Eof);
+        loop {
+            match self.next_token() {
+                Ok(Token::Eof) => {
+                    tokens.push(Token::Eof);
+                    break;
+                }
+                Ok(tok) => tokens.push(tok),
+                Err(e) => return Err(e), // you could also collect errors
+            }
         }
 
-        let tok = match self.ch {
-            b'{' => Token::Lbrace,
-            b'}' => Token::Rbrace,
-            b'(' => Token::Lparen,
-            b')' => Token::Rparen,
-            b',' => Token::Comma,
-            b';' => Token::Semicolon,
-            b'+' => Token::Plus,
-            b'=' => Token::Assign,
-            0 => Token::Eof,
-            _ => todo!("need to implement this..."),
-        };
-
-        self.read_char();
-        return Ok(tok);
+        Ok(tokens)
     }
 
     fn read_char(&mut self) {
@@ -71,36 +65,43 @@ impl Lexer {
         self.read_position += 1;
     }
 
-    pub fn lex(&mut self) -> Vec<Token> {
-        let mut tokens = Vec::new();
-
-        loop {
-            match self.next_token() {
-                Ok(Token::Eof) => {
-                    tokens.push(Token::Eof);
-                    break;
-                }
-                Ok(tok) => tokens.push(tok),
-                Err(_) => break, // you could also collect errors
-            }
+    fn skip_whitespace(&mut self) {
+        while matches!(self.ch, b' ' | b'\n' | b'\r' | b'\t') {
+            self.read_char();
         }
+    }
 
-        tokens
+    pub fn next_token(&mut self) -> Result<Token, String> {
+        self.skip_whitespace();
+
+        let tok = match self.ch {
+            b'{' => Token::Lbrace,
+            b'}' => Token::Rbrace,
+            b'(' => Token::Lparen,
+            b')' => Token::Rparen,
+            b',' => Token::Comma,
+            b';' => Token::Semicolon,
+            b'+' => Token::Plus,
+            b'=' => Token::Assign,
+            0 => Token::Eof,
+            _ => return Err(format!("unexpected char: {}", self.ch as char)),
+        };
+
+        self.read_char();
+        return Ok(tok);
     }
 }
 
 #[cfg(test)]
 mod test {
-
     use super::{Lexer, Token};
-    use anyhow::Result;
 
     #[test]
-    fn get_next_token() -> Result<()> {
-        let input = String::from("=+(){},;");
+    fn get_all_tokens() -> Result<(), String> {
+        let input = "=+(){},;".to_string();
         let mut lexer = Lexer::new(input);
 
-        let tokens = vec![
+        let expected_tokens = vec![
             Token::Assign,
             Token::Plus,
             Token::Lparen,
@@ -109,14 +110,15 @@ mod test {
             Token::Rbrace,
             Token::Comma,
             Token::Semicolon,
+            Token::Eof,
         ];
 
-        for token in tokens {
-            let next_token = lexer.next_token()?;
-            println!("expected {:?}, received {:?}", token, next_token);
-            assert_eq!(token, next_token);
+        let tokens = lexer.lex();
+
+        if tokens != expected_tokens {
+            return Err("Token mismatch!".to_string());
         }
 
-        return Ok(());
+        Ok(())
     }
 }

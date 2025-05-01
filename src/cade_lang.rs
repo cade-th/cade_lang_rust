@@ -30,30 +30,62 @@ impl Config {
     }
 }
 
+// Maybe do this here:
+// pub fn run(config: &Config) -> Result<(), LexError> {
+/*
+and then this in main:
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let config = Config::build(&args).unwrap_or_else(|e| {
+        eprintln!("Config error: {}", e);
+        process::exit(1);
+    });
+
+    if let Err(e) = run(&config) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
+}
+*/
+
 pub fn run(config: &Config) {
     let mut lexer: Lexer;
     if config.mode == Mode::SHELL {
-        let mut should_quit = false;
-
-        while should_quit {
+        loop {
             let input = run_shell();
             if input == ".quit" {
-                should_quit = true;
+                break;
             } else {
                 lexer = Lexer::new(input);
-                let tokens = lexer.lex();
+                match lexer.lex() {
+                    Ok(tokens) => {
+                        println!("Lexing succeeded. Tokens:");
+                        for token in tokens {
+                            println!("{:?}", token);
+                        }
+                    }
+                    Err(e) => println!("Lexer error: {}", e),
+                }
             }
         }
     } else {
         let contents =
             fs::read_to_string(&config.file_path).expect("Should have been able to read the file");
         lexer = Lexer::new(contents);
-        let tokens = lexer.lex();
+        match lexer.lex() {
+            Ok(tokens) => {
+                println!("Lexing succeeded. Tokens:");
+                for token in tokens {
+                    println!("{:?}", token);
+                }
+            }
+            Err(e) => println!("Lexer error: {}", e),
+        }
     }
 }
 
 pub fn run_shell() -> String {
-    print!(">>> ");
+    print!("cade_lang> ");
     io::stdout().flush().expect("Failed to flush stdout");
 
     let mut input = String::new();
